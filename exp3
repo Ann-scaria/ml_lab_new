@@ -1,0 +1,92 @@
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (accuracy_score, precision_score,
+    recall_score, f1_score, confusion_matrix, roc_curve, auc)
+
+# Load dataset
+data = load_breast_cancer()
+X = data.data
+y = data.target
+print("Data Shape:", X.shape)
+print("Classes:", np.unique(y))
+
+# Split and scale
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# MLE model (without regularization)
+mle_model = LogisticRegression(
+    penalty=None, max_iter=5000, random_state=42
+)
+mle_model.fit(X_train, y_train)
+
+# L1 model
+map_l1 = LogisticRegression(
+    penalty="l1", C=1.0, solver="liblinear",
+    max_iter=5000, random_state=42
+)
+map_l1.fit(X_train, y_train)
+
+# L2 model
+map_l2 = LogisticRegression(
+    penalty="l2", C=1.0, solver="lbfgs",
+    max_iter=5000, random_state=42
+)
+map_l2.fit(X_train, y_train)
+
+# Evaluate models
+models = {
+    "MLE": mle_model, "L1": map_l1, "L2": map_l2
+}
+results = {}
+
+for name, model in models.items():
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+
+    print("\n", name)
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("Precision:", precision_score(y_test, y_pred))
+    print("Recall:", recall_score(y_test, y_pred))
+    print("F1 Score:", f1_score(y_test, y_pred))
+    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
+    results[name] = {
+        "fpr": fpr, "tpr": tpr,
+        "AUC": auc(fpr, tpr), "model": model
+    }
+
+# ROC curves
+for name in models:
+    plt.plot(results[name]["fpr"], results[name]["tpr"],
+             label=f"{name}, AUC={results[name]['AUC']:.3f}")
+
+plt.plot([0, 1], [0, 1], "--")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve Comparison")
+plt.legend()
+plt.grid()
+plt.show()
+
+# Compare coefficients
+for name, model in models.items():
+    plt.plot(model.coef_[0], label=name)
+
+plt.title("Model Coefficients")
+plt.xlabel("Feature Index")
+plt.ylabel("Coefficient")
+plt.legend()
+plt.grid()
+plt.show()
