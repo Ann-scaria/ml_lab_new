@@ -1,0 +1,104 @@
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Load dataset
+data = pd.read_csv("mpg.csv")
+X = data[["displacement"]]
+y = data["mpg"]
+print("Missing values:", data[["displacement", "mpg"]].isnull().sum())
+
+data = data[["displacement", "mpg"]].dropna()
+X = data[["displacement"]]
+y = data["mpg"]
+
+# Plot data
+plt.scatter(X, y)
+plt.xlabel("Engine Displacement")
+plt.ylabel("Miles Per Gallon (MPG)")
+plt.grid()
+plt.show()
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Linear Regression
+linear_model = LinearRegression()
+linear_model.fit(X_train, y_train)
+y_pred_linear = linear_model.predict(X_test)
+
+results = [{
+    "Model": "Linear Regression", "Degree": 1,
+    "MSE": mean_squared_error(y_test, y_pred_linear),
+    "R-squared": r2_score(y_test, y_pred_linear)
+}]
+
+# Polynomial Regression
+polynomial_models = {}
+
+for degree in range(2, 6):
+    poly = PolynomialFeatures(degree=degree)
+    X_train_poly = poly.fit_transform(X_train)
+    X_test_poly = poly.transform(X_test)
+
+    poly_model = LinearRegression()
+    poly_model.fit(X_train_poly, y_train)
+    y_pred_poly = poly_model.predict(X_test_poly)
+
+    results.append({
+        "Model": "Polynomial Regression",
+        "Degree": degree,
+        "MSE": mean_squared_error(y_test, y_pred_poly),
+        "R-squared": r2_score(y_test, y_pred_poly)
+    })
+    polynomial_models[degree] = {
+        "poly": poly, "model": poly_model
+    }
+
+results_df = pd.DataFrame(results)
+print(results_df)
+
+# Plot regression curves
+x_plot = pd.DataFrame({
+    "displacement": np.linspace(X["displacement"].min(),
+                               X["displacement"].max(), 300)
+})
+plt.figure(figsize=(10, 6))
+plt.scatter(X["displacement"], y, label="Actual Data")
+plt.plot(x_plot["displacement"],
+         linear_model.predict(x_plot), label="Linear Regression")
+
+for degree in range(2, 6):
+    poly = polynomial_models[degree]["poly"]
+    poly_model = polynomial_models[degree]["model"]
+    plt.plot(x_plot["displacement"],
+             poly_model.predict(poly.transform(x_plot)),
+             label=f"Polynomial Degree {degree}")
+
+plt.xlabel("Engine Displacement")
+plt.ylabel("Miles Per Gallon (MPG)")
+plt.title("Linear and Polynomial Regression")
+plt.legend()
+plt.grid()
+plt.show()
+
+# Compare MSE and R-squared
+plt.bar(results_df["Degree"].astype(str), results_df["MSE"])
+plt.xlabel("Polynomial Degree")
+plt.ylabel("Mean Squared Error")
+plt.title("Comparison of MSE")
+plt.show()
+
+plt.plot(results_df["Degree"], results_df["R-squared"], marker="o")
+plt.xlabel("Polynomial Degree")
+plt.ylabel("R-squared")
+plt.title("Comparison of R-squared")
+plt.grid()
+plt.show()
