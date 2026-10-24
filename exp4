@@ -1,0 +1,76 @@
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.metrics import (accuracy_score, precision_score,
+                             recall_score, f1_score)
+
+# Load datasets
+train_data = fetch_20newsgroups(
+    subset="train",
+    remove=("headers", "footers", "quotes")
+)
+test_data = fetch_20newsgroups(
+    subset="test",
+    remove=("headers", "footers", "quotes")
+)
+
+X_train_text = train_data.data
+y_train = train_data.target
+X_test_text = test_data.data
+y_test = test_data.target
+class_names = train_data.target_names
+
+print("Training documents:", len(X_train_text))
+print("Testing documents:", len(X_test_text))
+print("Number of classes:", len(class_names))
+
+# Multinomial word-count features
+vectorizer = CountVectorizer(stop_words="english", min_df=2)
+X_train = vectorizer.fit_transform(X_train_text)
+X_test = vectorizer.transform(X_test_text)
+
+# Train Multinomial Naive Bayes
+mnb = MultinomialNB()
+mnb.fit(X_train, y_train)
+y_pred_mnb = mnb.predict(X_test)
+
+# Bernoulli binary word-presence features
+binary_vectorizer = CountVectorizer(
+    stop_words="english", min_df=2, binary=True
+)
+X_train_binary = binary_vectorizer.fit_transform(X_train_text)
+X_test_binary = binary_vectorizer.transform(X_test_text)
+
+bnb = BernoulliNB()
+bnb.fit(X_train_binary, y_train)
+y_pred_bnb = bnb.predict(X_test_binary)
+
+# Evaluate models
+results = []
+
+for name, y_pred in [
+    ("Multinomial NB", y_pred_mnb),
+    ("Bernoulli NB", y_pred_bnb)
+]:
+    results.append({
+        "Model": name,
+        "Accuracy": accuracy_score(y_test, y_pred),
+        "Precision": precision_score(y_test, y_pred, average="macro"),
+        "Recall": recall_score(y_test, y_pred, average="macro"),
+        "F1-Score": f1_score(y_test, y_pred, average="macro")
+    })
+
+results_df = pd.DataFrame(results)
+print(results_df)
+
+# Performance comparison graph
+results_df.set_index("Model").plot(kind="bar", figsize=(9, 5))
+plt.title("Performance Comparison: Multinomial NB vs Bernoulli NB")
+plt.ylabel("Score")
+plt.ylim(0, 1)
+plt.xticks(rotation=0)
+plt.grid(axis="y", alpha=0.3)
+plt.show()
